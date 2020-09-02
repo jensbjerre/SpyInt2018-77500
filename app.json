@@ -2,7 +2,7 @@
   "id": "53d67a47-f1e0-4292-bffa-d92fc9b79524",
   "name": "SpyInt2018",
   "publisher": "Spy ApS",
-  "version": "1.0.0.0",
+  "version": "1.0.0.1",
   "brief": "",
   "description": "Integration to Spy for NAV 2018",
   "privacyStatement": "",
@@ -12,7 +12,6 @@
   "logo": "Logo.jpg",
   "dependencies": [],
   "screenshots": [],
-  "capabilities": [],
   "platform": "11.0.0.0",
   "application": "11.0.0.0",
   "showMyCode": true

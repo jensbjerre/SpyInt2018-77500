@@ -390,18 +390,35 @@ xmlport 77501 SpyXmlCreateJournalLine
                         journalLine.Validate("Currency Code");
                     end;
                     // Findes der en bankkonto
-                    if (entryType = 'payment_offset') and (postType = 'ledger') then begin
-                        PostingGroup.SetFilter("G/L Bank Account No.", journalLine."Account No.");
-                        if PostingGroup.FindFirst() then begin
-                            BankAccount.SetFilter("Bank Acc. Posting Group", PostingGroup.Code);
+                    if (entryType = 'payment_offset') and (postType = 'ledger') then begiN
+                        // Rettet så version 14 og 15 er det samme vha. FieldRef
+                        MyTableRef.Open(Database::"Bank Account Posting Group");
+                        if MyTableref.FieldExist(3) then
+                            MyFldRef := MyTableRef.Field(3)
+                        else
+                            MyFldRef := MyTableRef.Field(2);
+
+                        MyFldRef.SetFilter(journalLine."Account No.");
+                        If MyTableRef.FindSet() THEN begin
+                            BankAccount.SetFilter("Bank Acc. Posting Group", MyTableRef.field(1).Value);
                             BankAccount.SetFilter("Currency Code", journalLine."Currency Code");
                             if BankAccount.FindFirst() then begin
                                 journalLine."Account Type" := journalLine."Account Type"::"Bank Account";
                                 journalLine."Account No." := BankAccount."No.";
                                 journalLine.validate("Account No.");
                             end;
-
                         end;
+                        // PostingGroup.SetFilter("G/L Account No.", journalLine."Account No.");
+                        // if PostingGroup.FindFirst() then begin
+                        //     BankAccount.SetFilter("Bank Acc. Posting Group", PostingGroup.Code);
+                        //     BankAccount.SetFilter("Currency Code", journalLine."Currency Code");
+                        //     if BankAccount.FindFirst() then begin
+                        //         journalLine."Account Type" := journalLine."Account Type"::"Bank Account";
+                        //         journalLine."Account No." := BankAccount."No.";
+                        //         journalLine.validate("Account No.");
+                        //     end;
+
+                        // end;
                     end;
 
                     genJournalLine.reset;
@@ -427,6 +444,8 @@ xmlport 77501 SpyXmlCreateJournalLine
                     if vatCode <> '' then begin
                         journalLine."VAT Bus. Posting Group" := vatCode;
                         journalLine."VAT Prod. Posting Group" := 'SPY';
+                        journalLine."Gen. Bus. Posting Group" := vatCode;
+                        journalLine."Gen. Prod. Posting Group" := 'SPY';
                         if (PostingType = 'Sale') then
                             journalLine."Gen. Posting Type" := journalLine."Gen. Posting Type"::Sale;
                         if PostingType = 'Purchase' then
@@ -467,19 +486,22 @@ xmlport 77501 SpyXmlCreateJournalLine
                         if DefDim.FindSet() then begin
                             EntryNo := 1;
                             repeat
-                                DBDefDim.Reset();
-                                DBDefDim.SetFilter("Dimension Code", DefDim."Dimension Code");
-                                DBDefDim.SetFilter("Dimension Value Code", DefDim."Dimension Value Code");
-                                DBDefDim.SetFilter("Table ID", '81');
-                                if not DBDefDim.FindSet() then begin
+                                IF (DefDim."Dimension Code" <> '') AND (DefDim."Dimension Value Code" <> '') then begin
                                     DBDefDim.Reset();
-                                    DBDefDim.Init();
-                                    DBDefDim."Table ID" := 81;
-                                    DBDefDim."Entry No." := EntryNo;
-                                    EntryNo := EntryNo + 1;
-                                    DBDefDim."Dimension Code" := DefDim."Dimension Code";
-                                    DBDefDim."Dimension Value Code" := DefDim."Dimension Value Code";
-                                    DBDefDim.Insert();
+                                    DBDefDim.SetFilter("Dimension Code", DefDim."Dimension Code");
+                                    DBDefDim.SetFilter("Dimension Value Code", DefDim."Dimension Value Code");
+                                    DBDefDim.SetFilter("Table ID", '81');
+
+                                    if not DBDefDim.FindSet() then begin
+                                        DBDefDim.Reset();
+                                        DBDefDim.Init();
+                                        DBDefDim."Table ID" := 81;
+                                        DBDefDim."Entry No." := EntryNo;
+                                        EntryNo := EntryNo + 1;
+                                        DBDefDim."Dimension Code" := DefDim."Dimension Code";
+                                        DBDefDim."Dimension Value Code" := DefDim."Dimension Value Code";
+                                        DBDefDim.Insert();
+                                    end;
                                 end;
                             until DefDim.Next = 0;
 
@@ -503,16 +525,18 @@ xmlport 77501 SpyXmlCreateJournalLine
                                             DB.Insert();
                                         until dse.Next = 0;
                                     end;
-                                    repeat
-                                        DB.Reset();
-                                        DB.Init();
-                                        DB."Entry No." := EntryNo;
-                                        EntryNo := EntryNo + 1;
-                                        DB."Table ID" := 81;
-                                        DB."Dimension Code" := DBDefDim."Dimension Code";
-                                        DB."Dimension Value Code" := DBDefDim."Dimension Value Code";
-                                        DB.Insert();
-                                    until DBDefDim.next = 0;
+                                    IF DBDefDim.FindSet() then begin
+                                        repeat
+                                            DB.Reset();
+                                            DB.Init();
+                                            DB."Entry No." := EntryNo;
+                                            EntryNo := EntryNo + 1;
+                                            DB."Table ID" := 81;
+                                            DB."Dimension Code" := DBDefDim."Dimension Code";
+                                            DB."Dimension Value Code" := DBDefDim."Dimension Value Code";
+                                            DB.Insert();
+                                        until DBDefDim.next = 0;
+                                    end;
                                     genJournalLine."Dimension Set ID" := DM.CreateDimSetIDFromDimBuf(DB);
                                     genJournalLine.Modify();
                                     DB.DeleteAll();
@@ -573,6 +597,8 @@ xmlport 77501 SpyXmlCreateJournalLine
 
 
     var
+        MyTableRef: RecordRef;
+        MyFldRef: FieldRef;
         BankAccount: record "Bank Account";
         PostingGroup: record "Bank Account Posting Group";
         templateName: code[20];
